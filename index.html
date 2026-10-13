@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Seguimiento de Hábitos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .check-btn {
+      transition: all 0.15s ease-in-out;
+    }
+    .check-btn:active {
+      transform: scale(0.9);
+    }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+  <div class="max-w-6xl mx-auto space-y-6">
+    <!-- Encabezado -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-5">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-white">Panel de Hábitos y Rendimiento</h1>
+        <p class="text-slate-400 text-sm mt-1">Registra tus objetivos diarios y visualiza tus rachas semanales en tiempo real</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="resetWeek()" class="px-4 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition">
+          Reiniciar Semana
+        </button>
+      </div>
+    </header>
+
+    <!-- Tarjetas de KPIs -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <span class="text-xs text-slate-400 uppercase tracking-wider">Cumplimiento Hoy</span>
+        <div class="text-2xl font-bold text-emerald-400 mt-1" id="kpi-today">0%</div>
+        <p class="text-xs text-slate-500 mt-1" id="kpi-today-sub">0 de 0 completados</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <span class="text-xs text-slate-400 uppercase tracking-wider">Mejor Racha Activa</span>
+        <div class="text-2xl font-bold text-amber-400 mt-1" id="kpi-streak">0 días</div>
+        <p class="text-xs text-slate-500 mt-1" id="kpi-streak-habit">Sin racha activa</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <span class="text-xs text-slate-400 uppercase tracking-wider">Total Semanal</span>
+        <div class="text-2xl font-bold text-sky-400 mt-1" id="kpi-total">0</div>
+        <p class="text-xs text-slate-500 mt-1">Objetivos logrados</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <span class="text-xs text-slate-400 uppercase tracking-wider">Consistencia Semanal</span>
+        <div class="text-2xl font-bold text-indigo-400 mt-1" id="kpi-consistency">0%</div>
+        <p class="text-xs text-slate-500 mt-1">Promedio de la semana</p>
+      </div>
+    </section>
+
+    <!-- Contenedor Principal: Matriz + Añadir Hábito -->
+    <section class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold text-white">Registro Diario de Objetivos</h2>
+        <form id="add-habit-form" class="flex gap-2">
+          <input
+            type="text"
+            id="new-habit-input"
+            placeholder="Nuevo objetivo diario..."
+            required
+            class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+          />
+          <button
+            type="submit"
+            class="bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition"
+          >
+            + Añadir
+          </button>
+        </form>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800 text-xs uppercase text-slate-400">
+              <th class="py-3 px-2 min-w-[200px]">Hábito / Objetivo</th>
+              <th class="py-3 px-2 text-center">Lun</th>
+              <th class="py-3 px-2 text-center">Mar</th>
+              <th class="py-3 px-2 text-center">Mié</th>
+              <th class="py-3 px-2 text-center">Jue</th>
+              <th class="py-3 px-2 text-center">Vie</th>
+              <th class="py-3 px-2 text-center">Sáb</th>
+              <th class="py-3 px-2 text-center">Dom</th>
+              <th class="py-3 px-2 text-center">Racha</th>
+              <th class="py-3 px-2 text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="habits-tbody" class="divide-y divide-slate-800/70 text-sm">
+            <!-- Filas generadas dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Sección de Gráficos -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Gráfico 1: Cumplimiento por Día -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h3 class="text-base font-semibold text-white mb-1">Objetivos Completados por Día</h3>
+        <p class="text-xs text-slate-400 mb-4">Evolución diaria del cumplimiento durante la semana</p>
+        <div class="h-64">
+          <canvas id="dailyChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Gráfico 2: Rachas por Hábito -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h3 class="text-base font-semibold text-white mb-1">Racha Actual vs. Total Semanal</h3>
+        <p class="text-xs text-slate-400 mb-4">Días consecutivos activos frente al total acumulado</p>
+        <div class="h-64">
+          <canvas id="streakChart"></canvas>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+    const DEFAULT_HABITS = [
+      { id: 1, name: 'Estudio técnico / Resolución de ejercicios', days: [true, true, true, true, false, false, false] },
+      { id: 2, name: 'Entrenamiento de pista y acondicionamiento', days: [true, false, true, true, false, false, false] },
+      { id: 3, name: 'Práctica de programación (C++ / Python)', days: [true, true, true, false, false, false, false] },
+      { id: 4, name: 'Práctica de inglés (Lectura / Listening)', days: [false, true, true, true, false, false, false] },
+      { id: 5, name: 'Descanso 7.5h+ e hidratación completa', days: [true, true, true, true, false, false, false] }
+    ];
+
+    let habits = JSON.parse(localStorage.getItem('habit_tracker_data')) || DEFAULT_HABITS;
+
+    // Índice del día actual (0 = Lunes ... 6 = Domingo)
+    const jsDay = new Date().getDay();
+    const todayIndex = jsDay === 0 ? 6 : jsDay - 1;
+
+    // Calcula la racha activa (días consecutivos hasta el último día marcado)
+    function calculateStreak(daysArray) {
+      let maxConsecutive = 0;
+      let current = 0;
+      for (let i = 0; i < daysArray.length; i++) {
+        if (daysArray[i]) {
+          current++;
+          if (current > maxConsecutive) maxConsecutive = current;
+        } else {
+          current = 0;
+        }
+      }
+      return maxConsecutive;
+    }
+
+    function saveData() {
+      localStorage.setItem('habit_tracker_data', JSON.stringify(habits));
+    }
+
+    function toggleDay(habitId, dayIdx) {
+      const habit = habits.find(h => h.id === habitId);
+      if (habit) {
+        habit.days[dayIdx] = !habit.days[dayIdx];
+        saveData();
+        renderAll();
+      }
+    }
+
+    function deleteHabit(habitId) {
+      habits = habits.filter(h => h.id !== habitId);
+      saveData();
+      renderAll();
+    }
+
+    function resetWeek() {
+      habits = habits.map(h => ({ ...h, days: [false, false, false, false, false, false, false] }));
+      saveData();
+      renderAll();
+    }
+
+    document.getElementById('add-habit-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('new-habit-input');
+      const name = input.value.trim();
+      if (!name) return;
+      habits.push({
+        id: Date.now(),
+        name,
+        days: [false, false, false, false, false, false, false]
+      });
+      input.value = '';
+      saveData();
+      renderAll();
+    });
+
+    function renderTable() {
+      const tbody = document.getElementById('habits-tbody');
+      tbody.innerHTML = '';
+
+      habits.forEach(habit => {
+        const streak = calculateStreak(habit.days);
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/40 transition';
+
+        let daysHtml = '';
+        habit.days.forEach((done, idx) => {
+          const isToday = idx === todayIndex;
+          const btnClass = done
+            ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
+            : (isToday ? 'bg-slate-800 border-sky-500/60 text-slate-400' : 'bg-slate-950 border-slate-800 text-slate-600');
+          daysHtml += `
+            <td class="py-3 px-2 text-center">
+              <button
+                onclick="toggleDay(${habit.id}, ${idx})"
+                class="check-btn w-8 h-8 rounded-lg border inline-flex items-center justify-center ${btnClass}"
+                title="${DAYS[idx]}"
+              >
+                ${done ? '✓' : ''}
+              </button>
+            </td>
+          `;
+        });
+
+        tr.innerHTML = `
+          <td class="py-3 px-2 font-medium text-slate-200">${habit.name}</td>
+          ${daysHtml}
+          <td class="py-3 px-2 text-center">
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${streak >= 3 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-400'}">
+              🔥 ${streak}d
+            </span>
+          </td>
+          <td class="py-3 px-2 text-right">
+            <button onclick="deleteHabit(${habit.id})" class="text-slate-500 hover:text-rose-400 text-xs px-2 py-1">
+              Eliminar
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderKPIs() {
+      const totalHabits = habits.length;
+      if (totalHabits === 0) {
+        document.getElementById('kpi-today').textContent = '0%';
+        document.getElementById('kpi-today-sub').textContent = 'Sin hábitos registrados';
+        document.getElementById('kpi-streak').textContent = '0 días';
+        document.getElementById('kpi-streak-habit').textContent = '-';
+        document.getElementById('kpi-total').textContent = '0';
+        document.getElementById('kpi-consistency').textContent = '0%';
+        return;
+      }
+
+      const completedToday = habits.filter(h => h.days[todayIndex]).length;
+      const todayPct = Math.round((completedToday / totalHabits) * 100);
+      document.getElementById('kpi-today').textContent = `${todayPct}%`;
+      document.getElementById('kpi-today-sub').textContent = `${completedToday} de ${totalHabits} hoy (${DAYS[todayIndex]})`;
+
+      let bestStreak = 0;
+      let bestHabitName = 'Ninguno';
+      let totalCompletedWeek = 0;
+
+      habits.forEach(h => {
+        const s = calculateStreak(h.days);
+        if (s > bestStreak) {
+          bestStreak = s;
+          bestHabitName = h.name;
+        }
+        totalCompletedWeek += h.days.filter(Boolean).length;
+      });
+
+      document.getElementById('kpi-streak').textContent = `${bestStreak} días`;
+      document.getElementById('kpi-streak-habit').textContent = bestHabitName;
+      document.getElementById('kpi-total').textContent = `${totalCompletedWeek} / ${totalHabits * 7}`;
+
+      const consistencyPct = Math.round((totalCompletedWeek / (totalHabits * 7)) * 100);
+      document.getElementById('kpi-consistency').textContent = `${consistencyPct}%`;
+    }
+
+    let dailyChartInstance = null;
+    let streakChartInstance = null;
+
+    function renderCharts() {
+      const dailyCounts = DAYS.map((_, dayIdx) =>
+        habits.reduce((acc, h) => acc + (h.days[dayIdx] ? 1 : 0), 0)
+      );
+
+      const ctxDaily = document.getElementById('dailyChart').getContext('2d');
+      if (dailyChartInstance) dailyChartInstance.destroy();
+      dailyChartInstance = new Chart(ctxDaily, {
+        type: 'bar',
+        data: {
+          labels: DAYS,
+          datasets: [{
+            label: 'Hábitos completados',
+            data: dailyCounts,
+            backgroundColor: 'rgba(16, 185, 129, 0.75)',
+            borderColor: '#10b981',
+            borderWidth: 1,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: Math.max(habits.length, 1),
+              ticks: { stepSize: 1, color: '#94a3b8' },
+              grid: { color: 'rgba(148, 163, 184, 0.1)' }
+            },
+            x: {
+              ticks: { color: '#94a3b8' },
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+
+      const habitLabels = habits.map(h => h.name.length > 22 ? h.name.slice(0, 22) + '…' : h.name);
+      const streakValues = habits.map(h => calculateStreak(h.days));
+      const totalValues = habits.map(h => h.days.filter(Boolean).length);
+
+      const ctxStreak = document.getElementById('streakChart').getContext('2d');
+      if (streakChartInstance) streakChartInstance.destroy();
+      streakChartInstance = new Chart(ctxStreak, {
+        type: 'bar',
+        data: {
+          labels: habitLabels,
+          datasets: [
+            {
+              label: 'Racha máxima (días seguidos)',
+              data: streakValues,
+              backgroundColor: 'rgba(245, 158, 11, 0.85)',
+              borderRadius: 6
+            },
+            {
+              label: 'Total días cumplidos',
+              data: totalValues,
+              backgroundColor: 'rgba(56, 189, 248, 0.65)',
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              beginAtZero: true,
+              max: 7,
+              ticks: { stepSize: 1, color: '#94a3b8' },
+              grid: { color: 'rgba(148, 163, 184, 0.1)' }
+            },
+            y: {
+              ticks: { color: '#e2e8f0' },
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: {
+              labels: { color: '#cbd5e1', boxWidth: 12 }
+            }
+          }
+        }
+      });
+    }
+
+    function renderAll() {
+      renderTable();
+      renderKPIs();
+      renderCharts();
+    }
+
+    renderAll();
+  </script>
+</body>
+</html>
